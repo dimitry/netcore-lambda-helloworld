@@ -1,0 +1,29 @@
+service: api
+
+provider:
+  name: aws
+  runtime: dotnetcore3.1
+  stage: dev
+  region: us-east-1
+  profile: transax
+
+package:
+  individually: true
+
+functions:
+  hello:
+    handler: API::API.Handler::HelloWorld
+    package:
+      artifact: bin/release/netcoreapp3.1/hello.zip
+    events:
+      - http:
+          path: hello
+          method: get
+  getquerystring:
+    handler: API::API.Handler::GetQuerystring
+    package:
+      artifact: bin/release/netcoreapp3.1/hello.zip
+    events:
+      - http:
+          path: getquerystring
+          method: get

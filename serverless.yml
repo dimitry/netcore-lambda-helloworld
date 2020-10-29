@@ -6,6 +6,8 @@ provider:
   stage: dev
   region: us-east-1
   profile: transax
+  environment:
+    VAULT: "Value from Lambda env"
 
 package:
   individually: true

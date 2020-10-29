@@ -9,6 +9,7 @@ using APIGatewayAuthorizerHandler.Error;
 using APIGatewayAuthorizerHandler.Model;
 using APIGatewayAuthorizerHandler.Model.Auth;
 using Newtonsoft.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -17,6 +18,16 @@ namespace API
 {
     public class Handler
     {
+        private ILambdaConfiguration Configuration { get; }
+
+        public Handler()
+        {
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            var serviceProvider = serviceCollection.BuildServiceProvider();
+            Configuration = serviceProvider.GetService<ILambdaConfiguration>();
+        }
+        
         public AuthPolicy Authorizer(TokenAuthorizerContext input, ILambdaContext context)
         {
             try
@@ -84,11 +95,17 @@ namespace API
 
         public APIGatewayProxyResponse HelloWorld(APIGatewayProxyRequest request, ILambdaContext context)
         {
-            if (request.RequestContext.Authorizer != null) {
+            // EXAMPLE: passing data from the authorizer
+            if (request != null && request.RequestContext != null && request.RequestContext.Authorizer != null) {
                 LogMessage(context, "----------------------");
                 LogMessage(context, request.RequestContext.Authorizer["key"] as string);
                 LogMessage(context, "----------------------");
             }
+
+            // EXAMPLE: configuration
+            string vaultVal = LambdaConfiguration.Configuration["VAULT"];
+            context.Logger.LogLine($"VAULT: {vaultVal}");
+
             APIGatewayProxyResponse response;
             Dictionary<string, string> dict = new Dictionary<string, string>();
             dict.Add("hello", "world");
@@ -151,6 +168,11 @@ namespace API
             };
 
             return response;
+        }
+
+        private void ConfigureServices(IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddTransient<ILambdaConfiguration, LambdaConfiguration>();
         }
 
     }

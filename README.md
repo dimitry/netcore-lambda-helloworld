@@ -115,8 +115,6 @@ In case of issues - try this:
 - Hint: Lambda Mock Test Tool should be started locally on port 5050
 - Click on Button "Execute Function"
 
-![Image description](resources/images/lambda_test_tool.png)
-
 > you should get hello world as a result.
 
 #### Test Another Example: getquerystring

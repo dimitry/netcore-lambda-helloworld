@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.APIGatewayEvents;
+using APIGatewayAuthorizerHandler;
+using APIGatewayAuthorizerHandler.Error;
+using APIGatewayAuthorizerHandler.Model;
+using APIGatewayAuthorizerHandler.Model.Auth;
 using Newtonsoft.Json;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
@@ -12,9 +17,78 @@ namespace API
 {
     public class Handler
     {
+        public AuthPolicy Authorizer(TokenAuthorizerContext input, ILambdaContext context)
+        {
+            try
+            {
+                // eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJnYXRld2F5SWQiOiJhMWZiNGRjOC0zY2Y2LTRlZTYtYmU1Zi03ZGI1ZjA3MDkxZDQiLCJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.-WH60ifv_FTHbEkoU2TQgkHDpT9zgmQ1HzQDgqngGjA
+                context.Logger.LogLine($"{nameof(input.AuthorizationToken)}: {input.AuthorizationToken}");
+                // context.Logger.LogLine($"{nameof(input.MethodArn)}: {input.MethodArn}");
+
+                // validate the incoming token
+                // and produce the principal user identifier associated with the token
+                string jwtSecret = "SECRET";
+                string decodedJWT;
+                try
+                {
+                    byte[] secretKey = Encoding.ASCII.GetBytes(jwtSecret);
+                    decodedJWT = Jose.JWT.Decode(input.AuthorizationToken, secretKey);
+                }
+                catch (Exception ex)
+                {
+                    context.Logger.LogLine(ex.ToString());
+                    throw new Exception("Bad token bro");
+                }
+
+                var pineappleJWT = System.Text.Json.JsonSerializer.Deserialize<PineappleJWTToken>(decodedJWT);
+
+                // build apiOptions for the AuthPolicy
+                var methodArn = ApiGatewayArn.Parse(input.MethodArn);
+                var apiOptions = new ApiOptions(methodArn.Region, methodArn.RestApiId, methodArn.Stage);
+
+                // this function must generate a policy that is associated with the recognized principal user identifier.
+                // depending on your use case, you might store policies in a DB, or generate them on the fly
+
+                // keep in mind, the policy is cached for 5 minutes by default (TTL is configurable in the authorizer)
+                // and will apply to subsequent calls to any method/resource in the RestApi
+                // made with the same token
+
+                // the example policy below denies access to all resources in the RestApi
+                var policyBuilder = new AuthPolicyBuilder(pineappleJWT.gatewayId, methodArn.AwsAccountId, apiOptions);
+                // policyBuilder.DenyAllMethods();
+                policyBuilder.AllowAllMethods();
+                // policyBuilder.AllowMethod(HttpVerb.GET, "/users/username");
+
+                // finally, build the policy
+                var authResponse = policyBuilder.Build();
+
+                // new! -- add additional key-value pairs
+                // these are made available by APIGW like so: $context.authorizer.<key>
+                // additional context is cached
+                authResponse.Context.Add("key", "value"); // $context.authorizer.key -> value
+                authResponse.Context.Add("number", 1);
+                authResponse.Context.Add("bool", true);
+
+                return authResponse;
+            }
+            catch (Exception ex)
+            {
+                if (ex is UnauthorizedException)
+                    throw;
+
+                // log the exception and return a 401
+                context.Logger.LogLine(ex.ToString());
+                throw new UnauthorizedException();
+            }
+        }
 
         public APIGatewayProxyResponse HelloWorld(APIGatewayProxyRequest request, ILambdaContext context)
         {
+            if (request.RequestContext.Authorizer != null) {
+                LogMessage(context, "----------------------");
+                LogMessage(context, request.RequestContext.Authorizer["key"] as string);
+                LogMessage(context, "----------------------");
+            }
             APIGatewayProxyResponse response;
             Dictionary<string, string> dict = new Dictionary<string, string>();
             dict.Add("hello", "world");

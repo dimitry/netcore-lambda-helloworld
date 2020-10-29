@@ -11,6 +11,10 @@ package:
   individually: true
 
 functions:
+  authorizer:
+    handler: API::API.Handler::Authorizer
+    package:
+      artifact: bin/release/netcoreapp3.1/hello.zip
   hello:
     handler: API::API.Handler::HelloWorld
     package:
@@ -19,6 +23,7 @@ functions:
       - http:
           path: hello
           method: get
+          authorizer: authorizer
   getquerystring:
     handler: API::API.Handler::GetQuerystring
     package:
@@ -27,3 +32,4 @@ functions:
       - http:
           path: getquerystring
           method: get
+          authorizer: authorizer
